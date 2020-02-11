@@ -1,0 +1,75 @@
+﻿@page "/"
+
+@using PlayPoker.Data
+@inject UserService userService
+@inject PokerService pokerService
+
+
+@if (user == null)
+{
+    <p>Enter user name</p>
+    <input type="text" @bind="username" />
+    <button type="button" @onclick="CreateUser">Submit</button>
+}
+else
+{
+    <h1>Welcome to Poker Games @user.Name</h1>
+
+    <p>Add New Game</p>
+    <input type="text" @bind="gameName" />
+    <button type="button" @onclick="CreateGame">Create Game</button>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Game Open</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var game in games)
+            {
+                <tr>
+                    <td><a href="/game/@game.Subject">@game.Subject</a></td>
+                    <td>@(!game.FinishedVoting)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private Participant user;
+    private List<Game> games;
+    private string username;
+    private string gameName;
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = userService.GetUser();
+
+        ListGames();
+
+        pokerService.OnGameChanged += () => ListGames();
+    }
+
+    private void CreateUser()
+    {
+        user = userService.CreateUser(username);
+        ListGames();
+    }
+
+    private void CreateGame()
+    {
+        pokerService.AddGame(gameName, user);
+        ListGames();
+    }
+
+    private void ListGames()
+    {
+        if (user != null)
+        {
+            games = pokerService.ListGames();
+            base.InvokeAsync(StateHasChanged);
+        }
+    }
+}

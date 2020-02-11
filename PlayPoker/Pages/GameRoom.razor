@@ -1,0 +1,95 @@
+﻿@page "/game/{name}"
+@using PlayPoker.Data
+@inject UserService userService
+@inject PokerService pokerService
+@inject NavigationManager navigationManager
+<a href="/">Back to Home</a>
+<h1>Game: @name</h1>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <p>@errorMessage</p>
+}
+
+@foreach (var card in cardLookup)
+{
+    <input type="image" src="@card.Value" alt="@card.Key" @onclick="@(() => Vote(card.Key))" width="50" height="80">
+}
+
+@foreach (var vote in game.Votes)
+{
+    <p>@vote.VoteParticipant.Name:</p>
+    @if (IsOwner() || game.FinishedVoting)
+    {
+        <img src="@cardLookup[vote.VoteCard]" alt="@vote.VoteCard" width="50" height="80">
+    }
+    else
+    {
+        <p>voted</p>
+    }
+}
+
+@if (IsOwner())
+{
+    <br />
+    <br />
+    <br />
+    <button @onclick="@(() => game.ToggleRoom())">@(game.FinishedVoting?"Open Room":"Close Room")</button>
+}
+
+@code {
+    [Parameter]
+    public string name { get; set; }
+
+    private string errorMessage;
+
+    private Game game;
+    private Participant user;
+
+    private Dictionary<PokerCard, string> cardLookup = new Dictionary<PokerCard, string>
+{
+        {PokerCard.c0, "/images/0.jpg"},
+        {PokerCard.c1, "/images/1.jpg"},
+        {PokerCard.c2, "/images/2.jpg"},
+        {PokerCard.c3, "/images/3.jpg"},
+        {PokerCard.c5, "/images/5.jpg"},
+        {PokerCard.c8, "/images/8.jpg"},
+        {PokerCard.c13, "/images/13.jpg"},
+        {PokerCard.cCoffee, "/images/coffee.jpg"}
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = userService.GetUser();
+
+        if (user == null)
+        {
+            navigationManager.NavigateTo("/");
+        }
+
+        game = pokerService.GetGame(name);
+
+        game.AddParticipant(user);
+
+
+        game.OnGameChanged += () => base.InvokeAsync(StateHasChanged);
+    }
+
+    private void Vote(PokerCard number)
+    {
+        try
+        {
+            game.SendVote(new PokerVote()
+            {
+                VoteParticipant = user,
+                VoteCard = number
+            });
+        }
+        catch (SCRUMPokerException ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private bool IsOwner() => game.Facilitator.Name == user.Name;
+}
